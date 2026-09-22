@@ -1227,7 +1227,9 @@ class AdjudicationRunDiagnostic(BaseModel):
     prompt_tokens: Annotated[int, Field(ge=0, le=10_000_000)] | None = None
     completion_tokens: Annotated[int, Field(ge=0, le=10_000_000)] | None = None
     final_tool_call_returned: bool | None = None
-    model: Annotated[str, Field(min_length=1, max_length=120)] | None = None
+    model: (
+        Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,119}$")] | None
+    ) = None
     provider: Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9._-]{0,63}$")] | None = (
         None
     )

@@ -230,25 +230,27 @@ async def test_deadline_bounds_a_completion_and_its_retry(tmp_path: Path) -> Non
     assert requests == 1
 
 
-def test_tool_call_accepts_already_parsed_arguments() -> None:
-    arguments = {
-        "decision": "clear",
-        "clear_clause": "model_authors_graded_slot",
-        "reason": "the served model writes the reply",
-        "citations": [{"path": "src/main.rs", "line": 6}],
-    }
-    call_id, name, parsed = adjudicator_module._tool_call(
-        {
-            "id": "submit-1",
-            "function": {"name": "submit_adjudication", "arguments": arguments},
-        }
-    )
+def test_tool_call_rejects_parsed_object_arguments() -> None:
+    with pytest.raises(ValueError, match="arguments are invalid"):
+        adjudicator_module._tool_call(
+            {
+                "id": "submit-1",
+                "function": {
+                    "name": "submit_adjudication",
+                    "arguments": {
+                        "decision": "clear",
+                        "reason": "model text that must not be stored",
+                    },
+                },
+            }
+        )
 
-    assert (call_id, name, parsed) == ("submit-1", "submit_adjudication", arguments)
 
-
-async def test_parsed_tool_arguments_do_not_collapse_the_court(tmp_path: Path) -> None:
-    """A router that returns object arguments is a contract miss, not a crash."""
+async def test_object_tool_arguments_stay_fail_closed_without_their_text(
+    tmp_path: Path,
+) -> None:
+    """A parsed object is recorded as a contract failure, not stored or settled."""
+    secret = "model text that must not be stored"
 
     def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -259,7 +261,7 @@ async def test_parsed_tool_arguments_do_not_collapse_the_court(tmp_path: Path) -
                     {
                         "message": {
                             "role": "assistant",
-                            "content": "do not persist this model text",
+                            "content": secret,
                             "tool_calls": [
                                 {
                                     "id": "submit-1",
@@ -268,15 +270,7 @@ async def test_parsed_tool_arguments_do_not_collapse_the_court(tmp_path: Path) -
                                         "name": "submit_adjudication",
                                         "arguments": {
                                             "decision": "clear",
-                                            "clear_clause": (
-                                                "model_authors_graded_slot"
-                                            ),
-                                            "reason": (
-                                                "the served model writes the reply"
-                                            ),
-                                            "citations": [
-                                                {"path": "src/main.rs", "line": 6}
-                                            ],
+                                            "reason": secret,
                                         },
                                     },
                                 }
@@ -291,11 +285,19 @@ async def test_parsed_tool_arguments_do_not_collapse_the_court(tmp_path: Path) -
         _key(tmp_path), httpx.MockTransport(handler)
     ).adjudicate(_archive(tmp_path), notes=[_CONCERN])
 
-    assert result.escalation_code != "adjudicator-failed"
     assert result.decision == "escalate"
-    assert result.escalation_code == "cited-unread-source"
-    assert result.run_diagnostic is None
-    assert "do not persist" not in result.model_dump_json()
+    assert result.escalation_code == "adjudicator-failed"
+    diagnostic = result.run_diagnostic
+    assert diagnostic is not None
+    assert diagnostic.error_class == "ValueError"
+    assert diagnostic.timeout_stage == "response"
+    assert diagnostic.http_status is None
+    assert diagnostic.elapsed_ms >= 0
+    assert diagnostic.prompt_tokens == 11
+    assert diagnostic.completion_tokens == 4
+    assert diagnostic.final_tool_call_returned is True
+    assert secret not in result.model_dump_json()
+    assert secret not in diagnostic.model_dump_json()
 
 
 async def test_provider_status_is_recorded_without_the_response_body(

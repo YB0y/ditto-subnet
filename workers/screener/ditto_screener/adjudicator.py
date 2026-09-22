@@ -69,6 +69,7 @@ logger = logging.getLogger(__name__)
 
 _ERROR_CLASS_RE = re.compile(r"^[A-Za-z][A-Za-z0-9]{0,63}$")
 _PROVIDER_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
+_MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,119}$")
 _RunStage = Literal["completion", "lease", "step-budget", "unavailable", "response"]
 
 
@@ -907,7 +908,7 @@ class SourceReviewAdjudicator:
             http_status = trace.http_status
         elapsed_ms = int((asyncio.get_running_loop().time() - trace.started) * 1000)
         elapsed_ms = min(max(elapsed_ms, 0), 3_600_000)
-        model = self._model if 1 <= len(self._model) <= 120 else None
+        model = self._model if _MODEL_RE.fullmatch(self._model) else None
         provider = (
             self._inference_provider
             if _PROVIDER_RE.fullmatch(self._inference_provider)
@@ -1274,14 +1275,11 @@ def _tool_call(call: object) -> tuple[str, str, dict[str, object]]:
     if not isinstance(function, dict) or not isinstance(function.get("name"), str):
         raise ValueError("adjudicator function call is invalid")
     raw = function.get("arguments")
-    if isinstance(raw, str):
-        arguments = json.loads(raw)
-    elif isinstance(raw, dict):
-        # Some routers return the tool payload already parsed. Rejecting that
-        # shape collapsed an entire court run into adjudicator-failed.
-        arguments = raw
-    else:
+    # Keep the arguments as a string. A parsed object is a contract miss, and
+    # its contents are model text: record the failure class, do not store it.
+    if not isinstance(raw, str):
         raise ValueError("adjudicator arguments are invalid")
+    arguments = json.loads(raw)
     if not isinstance(arguments, dict):
         raise ValueError("adjudicator arguments are not an object")
     return call["id"], function["name"], arguments

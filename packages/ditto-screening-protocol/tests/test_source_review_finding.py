@@ -774,6 +774,11 @@ def test_run_diagnostic_stays_out_of_the_signed_adjudication() -> None:
         }
     )
     assert "exception" not in restored.model_dump(mode="json")
+    with pytest.raises(ValidationError):
+        AdjudicationRunDiagnostic(
+            elapsed_ms=1,
+            model="the model replied with screening instructions",
+        )
     with pytest.raises(ValidationError, match="run diagnostic requires an escalation"):
         SourceReviewAdjudication(
             decision="clear",

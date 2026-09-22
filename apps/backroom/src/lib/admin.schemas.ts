@@ -4326,7 +4326,10 @@ export const adjudicationRunDiagnosticSchema = z.object({
   prompt_tokens: z.number().int().min(0).max(10_000_000).nullish(),
   completion_tokens: z.number().int().min(0).max(10_000_000).nullish(),
   final_tool_call_returned: z.boolean().nullish(),
-  model: z.string().min(1).max(120).nullish(),
+  model: z
+    .string()
+    .regex(/^[A-Za-z0-9][A-Za-z0-9._/-]{0,119}$/)
+    .nullish(),
   provider: z
     .string()
     .regex(/^[a-z0-9][a-z0-9._-]{0,63}$/)
