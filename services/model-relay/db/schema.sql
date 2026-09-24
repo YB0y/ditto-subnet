@@ -919,11 +919,11 @@ CREATE FUNCTION public.reject_verification_replay_binding_change() RETURNS trigg
         BEGIN
             IF (NEW.request_id, NEW.agent_id, NEW.quarantine_id,
                 NEW.source_attempt_id, NEW.artifact_sha256,
-                NEW.policy_version, NEW.image_upload_id)
+                NEW.policy_version, NEW.manifest_digest, NEW.image_upload_id)
                IS DISTINCT FROM
                (OLD.request_id, OLD.agent_id, OLD.quarantine_id,
                 OLD.source_attempt_id, OLD.artifact_sha256,
-                OLD.policy_version, OLD.image_upload_id) THEN
+                OLD.policy_version, OLD.manifest_digest, OLD.image_upload_id) THEN
                 RAISE EXCEPTION 'verification replay source binding is immutable';
             END IF;
             IF OLD.image_verified_storage_key IS NOT NULL AND
@@ -4500,10 +4500,12 @@ CREATE TABLE public.screening_verification_replays (
     failure_code text,
     lease_started_at timestamp with time zone,
     lease_renewals integer DEFAULT 0 NOT NULL,
+    manifest_digest text,
     CONSTRAINT ck_screening_verification_replays_svrp_artifact_sha_check CHECK ((artifact_sha256 ~ '^[0-9a-f]{64}$'::text)),
     CONSTRAINT ck_screening_verification_replays_svrp_image_metadata_check CHECK ((((image_sha256 IS NULL) AND (image_size_bytes IS NULL) AND (image_id IS NULL) AND (image_verified_at IS NULL)) OR ((image_sha256 IS NOT NULL) AND (image_size_bytes > 0) AND (image_id IS NOT NULL)))),
     CONSTRAINT ck_screening_verification_replays_svrp_image_sha_check CHECK (((image_sha256 IS NULL) OR (image_sha256 ~ '^[0-9a-f]{64}$'::text))),
     CONSTRAINT ck_screening_verification_replays_svrp_lease_renewals_check CHECK (((lease_renewals >= 0) AND (lease_renewals <= 8))),
+    CONSTRAINT ck_screening_verification_replays_svrp_manifest_digest_check CHECK (((manifest_digest IS NULL) OR (manifest_digest ~ '^[0-9a-f]{64}$'::text))),
     CONSTRAINT ck_screening_verification_replays_svrp_policy_check CHECK ((policy_version = 13)),
     CONSTRAINT ck_screening_verification_replays_svrp_status_check CHECK ((status = ANY (ARRAY['queued'::text, 'running'::text, 'reported'::text, 'failed'::text]))),
     CONSTRAINT ck_screening_verification_replays_svrp_verified_storage_e6b8 CHECK (((image_upload_id IS NOT NULL) OR (image_verified_at IS NULL) OR (image_verified_storage_key IS NOT NULL)))
