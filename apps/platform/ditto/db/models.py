@@ -930,6 +930,10 @@ class ScreeningVerificationReplay(Base):
     )
     artifact_sha256: Mapped[str] = mapped_column(Text, nullable=False)
     policy_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Snapshotted from the active quarantine at authorization. Null only on
+    # leases created before the pin; those fail closed instead of tracking a
+    # later manifest.
+    manifest_digest: Mapped[str | None] = mapped_column(Text, nullable=True)
     # A pre-build hold normally has no screened image. A claimed independent
     # worker may upload one to this replay's own immutable object key; it is
     # never attached to Agent or represented as the original attempt's image.
@@ -1003,6 +1007,10 @@ class ScreeningVerificationReplay(Base):
             name="svrp_verified_storage_key_check",
         ),
         CheckConstraint("policy_version = 13", name="svrp_policy_check"),
+        CheckConstraint(
+            "manifest_digest IS NULL OR manifest_digest ~ '^[0-9a-f]{64}$'",
+            name="svrp_manifest_digest_check",
+        ),
         CheckConstraint(
             "status IN ('queued', 'running', 'reported', 'failed')",
             name="svrp_status_check",
