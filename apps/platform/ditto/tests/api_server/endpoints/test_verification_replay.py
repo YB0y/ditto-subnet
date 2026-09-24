@@ -589,6 +589,32 @@ async def test_prebuild_hold_gets_separate_verified_replay_image(session):
     assert (await session.get(Agent, agent_id)).status == "quarantined"
 
 
+@pytest.mark.asyncio
+async def test_manifest_change_fails_a_queued_replay_before_claim(session):
+    agent_id, attempt_id, quarantine_id, image_id = await _seed(session)
+    created = await create_replay(
+        agent_id, _payload(attempt_id, quarantine_id, image_id), None, session
+    )
+    pinned = await session.get(ScreeningVerificationReplay, created.replay_id)
+    assert pinned is not None
+    assert pinned.manifest_digest == "d" * 64
+    quarantine = await session.get(ScreeningQuarantine, quarantine_id)
+    assert quarantine is not None
+    quarantine.manifest_digest = "e" * 64
+    await session.commit()
+    await _enroll(session, replay_capacity=1)
+
+    claimed = await claim_replay(_request(), SECOND_WORKER, session)
+
+    assert claimed is None
+    stale = await session.get(ScreeningVerificationReplay, created.replay_id)
+    assert stale is not None
+    assert stale.status == "failed"
+    assert stale.failure_code == "binding-stale"
+    assert stale.manifest_digest == "d" * 64
+    assert (await session.get(Agent, agent_id)).status == "quarantined"
+
+
 def test_verified_replay_candidates_never_share_a_final_object_key():
     replay_id = uuid4()
     assert _replay_verified_image_key(replay_id, uuid4()) != (

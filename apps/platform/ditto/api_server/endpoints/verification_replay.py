@@ -154,6 +154,8 @@ async def _binding_ok(
         and quarantine.agent_id == row.agent_id
         and quarantine.attempt_id == row.source_attempt_id
         and quarantine.policy_version == row.policy_version
+        and row.manifest_digest is not None
+        and quarantine.manifest_digest == row.manifest_digest
         and quarantine.status == "active"
         and attempt is not None
         and attempt.agent_id == row.agent_id
@@ -221,6 +223,14 @@ async def create_replay(
         or agent.sha256 != payload.artifact_sha256
     ):
         raise HTTPException(409, "agent status or artifact changed")
+    # Agent is already locked. Quarantine is the next writer lock, matching
+    # _binding_ok, so the snapshot cannot move before the lease is inserted.
+    quarantine = await session.get(
+        ScreeningQuarantine,
+        payload.quarantine_id,
+        populate_existing=True,
+        with_for_update=True,
+    )
     row = ScreeningVerificationReplay(
         replay_id=uuid4(),
         request_id=payload.request_id,
@@ -229,6 +239,9 @@ async def create_replay(
         source_attempt_id=payload.source_attempt_id,
         artifact_sha256=payload.artifact_sha256,
         policy_version=payload.policy_version,
+        manifest_digest=(
+            quarantine.manifest_digest if quarantine is not None else None
+        ),
         image_upload_id=payload.image_upload_id,
         image_sha256=payload.image_sha256,
         image_size_bytes=(
