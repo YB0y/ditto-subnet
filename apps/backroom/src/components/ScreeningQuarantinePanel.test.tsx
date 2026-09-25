@@ -652,7 +652,11 @@ describe('ScreeningQuarantinePanel', () => {
 
     expect(screen.getByText(/Held for behavioral oracle passed/)).toBeTruthy()
     expect(screen.getByText(/Ruled operator rejected quarantine/)).toBeTruthy()
+    // No bare code survives, and each one is present under its own label — the
+    // absence check alone would also pass if the panel dropped the code.
     expect(screen.queryByText(/^behavioral oracle passed$/)).toBeNull()
+    expect(screen.getByText('Screening lead: behavioral oracle passed')).toBeTruthy()
+    expect(screen.getByText('Operator ruling: operator rejected quarantine')).toBeTruthy()
   })
 
   it('expands and collapses long quarantine summaries', () => {
