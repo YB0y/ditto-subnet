@@ -6975,6 +6975,10 @@ class TestQuarantineAdmin:
         ).json()["items"][0]
         assert quarantine["screening_reason_code"] == "behavioral-oracle-passed"
         assert quarantine["resolution_reason_code"] is None
+        # The deprecated wire alias carried for the rollout holds the same
+        # screening-origin code, so a Backroom that has not been redeployed
+        # still reads the value it requires.
+        assert quarantine["reason_code"] == "behavioral-oracle-passed"
 
         reason = "Operator review found a replayed oracle transcript."
         rejected = await client.post(
@@ -6988,6 +6992,7 @@ class TestQuarantineAdmin:
         assert resolved["resolution"] == "reject"
         assert resolved["resolution_reason_code"] == "operator-rejected-quarantine"
         assert resolved["screening_reason_code"] == "behavioral-oracle-passed"
+        assert resolved["reason_code"] == "behavioral-oracle-passed"
 
         audit = await client.get(
             f"/api/v1/admin/screening-review-events?agent_id={agent_id}",
@@ -7002,6 +7007,8 @@ class TestQuarantineAdmin:
         assert manual["screening_reason_code"] == "behavioral-oracle-passed"
         assert manual["effective_decision"] == "reject"
         assert manual["resolution_reason_code"] == "operator-rejected-quarantine"
+        assert automated["reason_code"] == "behavioral-oracle-passed"
+        assert manual["reason_code"] == "behavioral-oracle-passed"
 
         async with session_maker() as session:
             agent = await session.get(Agent, agent_id)
@@ -11895,6 +11902,12 @@ class TestQuarantineReviewContext:
         assert [q["agent_name"] for q in body["miner"]["recent_quarantines"]] == [
             "alpha-agent-v1"
         ]
+        # Every renamed surface keeps emitting the screening-origin code under
+        # the deprecated `reason_code` name too: Platform and Backroom deploy in
+        # parallel from one release, and a Backroom that has not been redeployed
+        # still requires the old name. Same value, never a second fact.
+        summary = body["miner"]["recent_quarantines"][0]
+        assert summary["reason_code"] == summary["screening_reason_code"]
         # The coldkey behind ``same_owner`` is now named, so a reviewer can see
         # WHY two hotkeys were treated as one owner instead of trusting a flag.
         assert body["agent"]["miner_coldkey"] == "5SharedPaymentOwner"

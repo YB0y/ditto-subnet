@@ -6,7 +6,14 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    computed_field,
+    model_validator,
+)
 
 from ditto.api_models.screener import (
     ScreenEvidenceItem,
@@ -153,6 +160,20 @@ class AdminQuarantineItem(BaseModel):
     survives the hold — a resolved quarantine still reports the code it was
     opened with. It is **not** the operator's decision; read ``resolution``
     with ``resolution_reason_code`` for that."""
+
+    @computed_field(deprecated=True)  # type: ignore[prop-decorator]
+    @property
+    def reason_code(self) -> str:
+        """Deprecated alias for ``screening_reason_code``, kept for the rollout.
+
+        Platform and Backroom deploy in parallel from one release, so a Backroom
+        that has not been redeployed still requires this field and would reject
+        every quarantine item if it disappeared. It always carries the same
+        screening-origin code as ``screening_reason_code`` — never the operator's
+        ruling — and is removed once the console reads only the new name.
+        """
+        return self.screening_reason_code
+
     review_audit_digest: str | None = None
     review_audit: ScreenReviewAudit | None = None
     review_notes_digest: str | None = None
@@ -207,6 +228,18 @@ class AdminScreeningReviewEvent(BaseModel):
     and preserved. On a manual event it therefore describes the lead the
     operator ruled on, **not** the ruling — see
     ``resolution_reason_code``."""
+
+    @computed_field(deprecated=True)  # type: ignore[prop-decorator]
+    @property
+    def reason_code(self) -> str | None:
+        """Deprecated alias for ``screening_reason_code``, kept for the rollout.
+
+        Same value, same screening-origin meaning, and lost as soon as the
+        console reads only the new name — see ``AdminQuarantineItem.reason_code``
+        for why the transition needs it.
+        """
+        return self.screening_reason_code
+
     resolution_reason_code: ResolutionReasonCode | None = None
     """The operator's own basis, derived from ``effective_decision``. Non-null
     only on a ``manual`` event: an automated ``reject`` is the screener's
@@ -880,6 +913,18 @@ class AdminMinerQuarantineSummary(BaseModel):
     screening_reason_code: str
     """Why the screener held that submission. Preserved across the resolution:
     this is the lead the operator ruled on, not the ruling."""
+
+    @computed_field(deprecated=True)  # type: ignore[prop-decorator]
+    @property
+    def reason_code(self) -> str:
+        """Deprecated alias for ``screening_reason_code``, kept for the rollout.
+
+        Same value, same screening-origin meaning, and lost as soon as the
+        console reads only the new name — see ``AdminQuarantineItem.reason_code``
+        for why the transition needs it.
+        """
+        return self.screening_reason_code
+
     status: Literal["active", "resolved"]
     resolution: QuarantineResolution | None
     resolution_reason: str | None

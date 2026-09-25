@@ -140,6 +140,15 @@ never interchangeable:
   because an automated rejection is the screener's own verdict arriving over
   the signed screening path, not an operator ruling.
 
+The quarantine, review-event, and miner-summary responses also carry a
+deprecated `reason_code` alias holding exactly the same screening-origin code
+as `screening_reason_code`. Platform and Backroom deploy in parallel from one
+release with no ordering between them, so a Backroom that has not been
+redeployed still requires the old name and would reject every quarantine item
+without it. The alias is never a second fact: Backroom coalesces it onto
+`screening_reason_code` and drops it, and both the alias and that fallback are
+removed once no supported Backroom reads the old name.
+
 Deriving the ruling code rather than storing it keeps rows written before the
 field existed correct without rewriting an append-only ledger, and leaves no
 denormalized copy to drift. The vocabularies are disjoint — no screening-origin

@@ -10149,6 +10149,16 @@ export interface components {
              * Format: uuid
              */
             quarantine_id: string;
+            /**
+             * Reason Code
+             * @deprecated
+             * @description Deprecated alias for ``screening_reason_code``, kept for the rollout.
+             *
+             *     Same value, same screening-origin meaning, and lost as soon as the
+             *     console reads only the new name — see ``AdminQuarantineItem.reason_code``
+             *     for why the transition needs it.
+             */
+            readonly reason_code: string;
             /** Resolution */
             resolution: ("release" | "rescreen" | "reject") | null;
             /** Resolution Reason */
@@ -10587,6 +10597,18 @@ export interface components {
              * Format: uuid
              */
             quarantine_id: string;
+            /**
+             * Reason Code
+             * @deprecated
+             * @description Deprecated alias for ``screening_reason_code``, kept for the rollout.
+             *
+             *     Platform and Backroom deploy in parallel from one release, so a Backroom
+             *     that has not been redeployed still requires this field and would reject
+             *     every quarantine item if it disappeared. It always carries the same
+             *     screening-origin code as ``screening_reason_code`` — never the operator's
+             *     ruling — and is removed once the console reads only the new name.
+             */
+            readonly reason_code: string;
             /** Resolution */
             resolution: ("release" | "rescreen" | "reject") | null;
             /** Resolution History */
@@ -11705,6 +11727,16 @@ export interface components {
             quarantine_id: string | null;
             /** Reason */
             reason: string | null;
+            /**
+             * Reason Code
+             * @deprecated
+             * @description Deprecated alias for ``screening_reason_code``, kept for the rollout.
+             *
+             *     Same value, same screening-origin meaning, and lost as soon as the
+             *     console reads only the new name — see ``AdminQuarantineItem.reason_code``
+             *     for why the transition needs it.
+             */
+            readonly reason_code: string | null;
             /** Resolution Id */
             resolution_id: string | null;
             /** Resolution Reason Code */
