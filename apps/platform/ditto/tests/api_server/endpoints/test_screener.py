@@ -8844,6 +8844,77 @@ class TestQuarantineAdmin:
         assert missing.status_code == 404
         assert missing.json()["message"] == "screening submission not found"
 
+    async def test_rescreen_clears_the_superseded_screening_code(
+        self,
+        app: FastAPI,
+        client: httpx.AsyncClient,
+        session_maker: async_sessionmaker[AsyncSession],
+    ) -> None:
+        """A retry request must not pair operator prose with the old verdict's code.
+
+        The submission is headed back to the screener, so the rejection the
+        previous attempt recorded no longer describes it. Leaving that code on
+        the row is what made a resolved submission look like the operator's
+        ruling was the screener's CLEAR-side lead (#2260).
+        """
+        app.state.config = replace(
+            app.state.config,
+            admin_api_token="test-admin-token-at-least-32-characters",
+        )
+        agent_id = await _seed_agent(
+            session_maker,
+            status=AgentStatus.REJECTED,
+            screening_policy_version=SCREENING_POLICY_VERSION,
+        )
+        await _seed_score(session_maker, agent_id=agent_id)
+        attempt_id = uuid4()
+        now = datetime.now(UTC)
+        async with session_maker() as session, session.begin():
+            session.add(
+                ScreeningAttempt(
+                    attempt_id=attempt_id,
+                    agent_id=agent_id,
+                    screener_hotkey=_SCREENER_HOTKEY,
+                    policy_version=SCREENING_POLICY_VERSION,
+                    status="rejected",
+                    started_at=now - timedelta(minutes=2),
+                    deadline=now + timedelta(minutes=28),
+                    finished_at=now,
+                    public_reason="Submission held for anti-cheat review",
+                    reason_code="agentic-source-review-tripwire",
+                )
+            )
+            seeded = await session.get(Agent, agent_id)
+            assert seeded is not None
+            seeded.screening_reason = "Submission held for anti-cheat review"
+            seeded.screening_reason_code = "agentic-source-review-tripwire"
+        _install_db(app, session_maker)
+        response = await client.post(
+            f"/api/v1/admin/screening-submissions/{agent_id}/rescreen",
+            headers={
+                "Authorization": "Bearer test-admin-token-at-least-32-characters",
+                "X-Admin-Actor": "backroom:test-user",
+            },
+            json={
+                "reason": "Build was interrupted by a worker deployment",
+                "expected_sha256": _SHA256,
+                "expected_score_count": 1,
+            },
+        )
+        assert response.status_code == 200, response.text
+        async with session_maker() as session:
+            agent = await session.get(Agent, agent_id)
+            attempt = await session.get(ScreeningAttempt, attempt_id)
+            assert agent is not None
+            assert agent.screening_reason == "Operator requested a screening retry"
+            # The prose is the operator's, and there is no current verdict, so
+            # the pair no longer mixes the two vocabularies.
+            assert agent.screening_reason_code is None
+            # Clearing the agent's copy is not destructive: the lead the old
+            # attempt recorded survives verbatim on the attempt row.
+            assert attempt is not None
+            assert attempt.reason_code == "agentic-source-review-tripwire"
+
     async def test_rejected_rescreen_preserves_score_and_attempt_history(
         self,
         app: FastAPI,

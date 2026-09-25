@@ -153,7 +153,11 @@ A manual resolution stamps the matching ruling code onto the agent, so the
 miner-facing `screening_reason` / `screening_reason_code` pair returned by
 `GET /api/v1/retrieval/agent/{agent_id}/status` and
 `GET /api/v1/retrieval/agent-by-hotkey` always describes a single decision
-rather than pairing the operator's prose with a stale screening code.
+rather than pairing the operator's prose with a stale screening code. The
+pre-quarantine retry routes clear `screening_reason_code` for the same reason:
+the submission is back in the screener's hands, so no verdict describes it and
+the operator's prose stands alone until the next attempt concludes. That clear
+loses nothing, because the attempt row keeps the earlier lead verbatim.
 
 Quarantine listings default to `sort=oldest` so operator queues process the
 longest-waiting submission first. Clients may request `sort=newest`; pagination

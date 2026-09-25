@@ -2928,6 +2928,12 @@ async def rescreen_rejected_submission(
             raise HTTPException(status_code=409, detail="screening attempt is missing")
         agent.status = AgentStatus.SCREENING_FAILED
         agent.screening_reason = "Operator requested a screening retry"
+        # The submission is going back to the screener, so no verdict describes
+        # it right now. Leaving the previous attempt's code in place would pair
+        # this operator prose with a screening code the retry has superseded --
+        # the conflation #2260 is about. The code is repopulated when the new
+        # attempt concludes, and the attempt row keeps the old lead verbatim.
+        agent.screening_reason_code = None
         await _authorize_screening_retry(
             session,
             agent=agent,
