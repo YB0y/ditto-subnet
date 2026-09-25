@@ -510,12 +510,32 @@ export function QuarantineEvidencePanel({
       ) : null}
 
       <section aria-label="Screening evidence">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
           <p className="text-xs font-medium text-white">Why it was quarantined</p>
-          <span className="text-[10px] capitalize text-[var(--amber)]">
-            {humanize(record.screening_reason_code)}
+          {/* The code names the screener's lead, never the operator's decision,
+              and the screener's own disposition for it is not in this panel at
+              all — `behavioral-oracle-passed` is a CLEAR-side code. A bare code
+              under this heading read as the reason for the resolution shown
+              beside the panel, which is the misreading the two codes were split
+              to stop, so it is labelled with the origin it actually has. Wording
+              is deliberately not the queue's `Held for`/`Ruled` pair: this panel
+              is the only place both codes appear together, and the focused test
+              asserts each of those strings exactly once. */}
+          <span
+            className="text-[10px] capitalize text-[var(--amber)]"
+            title="Why the screener held this submission. Not the operator's ruling."
+          >
+            Screening lead: {humanize(record.screening_reason_code)}
           </span>
         </div>
+        {record.resolution_reason_code ? (
+          <p
+            className="mt-1 text-[10px] capitalize text-[var(--muted)]"
+            title="The operator decision this quarantine was closed with."
+          >
+            Operator ruling: {humanize(record.resolution_reason_code)}
+          </p>
+        ) : null}
         {evidence.length === 0 ? (
           <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
             The screener reported only a reason code and digests for this quarantine.

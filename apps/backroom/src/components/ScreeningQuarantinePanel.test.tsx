@@ -652,15 +652,7 @@ describe('ScreeningQuarantinePanel', () => {
 
     expect(screen.getByText(/Held for behavioral oracle passed/)).toBeTruthy()
     expect(screen.getByText(/Ruled operator rejected quarantine/)).toBeTruthy()
-    // The queue row carries the ruling and the status badge, so an unlabelled
-    // code there is the conflation this test exists to catch. The detail pane
-    // is the one place the raw code still stands alone, because its own
-    // "Why it was quarantined" heading already says which code it is.
-    const bare = screen.queryAllByText(/^behavioral oracle passed$/)
-    expect(bare).toHaveLength(1)
-    expect(bare[0].closest('section')?.getAttribute('aria-label')).toBe(
-      'Screening evidence',
-    )
+    expect(screen.queryByText(/^behavioral oracle passed$/)).toBeNull()
   })
 
   it('expands and collapses long quarantine summaries', () => {
