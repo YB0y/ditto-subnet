@@ -63,7 +63,7 @@ const quarantine: ScreeningQuarantine = {
   policy_version: 6,
   manifest_digest: 'b'.repeat(64),
   finding_digest: 'c'.repeat(64),
-  reason_code: 'suspicious_source',
+  screening_reason_code: 'suspicious_source',
   evidence: [
     {
       module_id: 'luna-source-review',
@@ -90,6 +90,7 @@ const quarantine: ScreeningQuarantine = {
   resolved_by: null,
   resolution: null,
   resolution_reason: null,
+  resolution_reason_code: null,
 }
 
 const quarantineContext: ScreeningQuarantineContext = {
@@ -135,10 +136,11 @@ const quarantineContext: ScreeningQuarantineContext = {
         quarantine_id: '44444444-4444-4444-8444-444444444444',
         agent_id: '55555555-5555-4555-8555-555555555555',
         agent_name: 'Review agent v1',
-        reason_code: 'behavioral-oracle-wrong-answer',
+        screening_reason_code: 'behavioral-oracle-wrong-answer',
         status: 'resolved',
         resolution: 'reject',
         resolution_reason: 'Static answer table confirmed',
+        resolution_reason_code: 'operator-rejected-quarantine',
         created_at: '2026-07-10T10:00:00Z',
         resolved_at: '2026-07-11T10:00:00Z',
       },
@@ -624,6 +626,41 @@ describe('ScreeningQuarantinePanel', () => {
       screen.getByText('Deterministic shortcut bypasses the general provider path.'),
     ).toBeTruthy()
     expect(screen.getByText('src/main.rs:42')).toBeTruthy()
+  })
+
+  it('labels the screening origin and the operator ruling as separate codes', () => {
+    const resolved: ScreeningQuarantine = {
+      ...quarantine,
+      status: 'resolved',
+      resolved_at: '2026-07-15T09:00:00Z',
+      resolved_by: 'backroom:reviewer@example.com',
+      resolution: 'reject',
+      resolution_reason: 'Static answer table confirmed',
+      // A code the screener emits with a CLEAR disposition. Unlabelled beside
+      // the `reject` badge it read as the reason for the rejection, so the
+      // panel now says which code is the lead and which is the ruling.
+      screening_reason_code: 'behavioral-oracle-passed',
+      resolution_reason_code: 'operator-rejected-quarantine',
+    }
+    render(
+      <ScreeningQuarantinePanel
+        initialItems={[resolved]}
+        initialSubmissions={[submission]}
+        readOnly={false}
+      />,
+    )
+
+    expect(screen.getByText(/Held for behavioral oracle passed/)).toBeTruthy()
+    expect(screen.getByText(/Ruled operator rejected quarantine/)).toBeTruthy()
+    // The queue row carries the ruling and the status badge, so an unlabelled
+    // code there is the conflation this test exists to catch. The detail pane
+    // is the one place the raw code still stands alone, because its own
+    // "Why it was quarantined" heading already says which code it is.
+    const bare = screen.queryAllByText(/^behavioral oracle passed$/)
+    expect(bare).toHaveLength(1)
+    expect(bare[0].closest('section')?.getAttribute('aria-label')).toBe(
+      'Screening evidence',
+    )
   })
 
   it('expands and collapses long quarantine summaries', () => {

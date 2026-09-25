@@ -122,6 +122,39 @@ needed and promotes to evaluation; rescreen returns the preserved submission to
 the screener queue; reject retains the submission and prior scores but prevents
 evaluation until a future policy-version rescreen.
 
+Every quarantine carries two codes from disjoint vocabularies, and they are
+never interchangeable:
+
+- `screening_reason_code` is why the screener held the submission: the code
+  from the signed verdict that opened the quarantine. It survives the
+  resolution, so a resolved quarantine still reports the lead the operator
+  ruled on, and the append-only `screening_review_events` ledger keeps that
+  same code verbatim on the manual event it snapshots. It is screening-origin
+  provenance, not a decision — `behavioral-oracle-passed`, for instance, is
+  emitted with a CLEAR disposition by the screener, so reading it as the reason
+  for a later rejection inverts its meaning.
+- `resolution_reason_code` is the operator's own ruling, derived from
+  `resolution` as `operator-released-quarantine`,
+  `operator-rescreened-quarantine`, or `operator-rejected-quarantine`. It is
+  null while the quarantine is active and null on an automated review event,
+  because an automated rejection is the screener's own verdict arriving over
+  the signed screening path, not an operator ruling.
+
+Deriving the ruling code rather than storing it keeps rows written before the
+field existed correct without rewriting an append-only ledger, and leaves no
+denormalized copy to drift. The vocabularies are disjoint — no screening-origin
+code begins with `operator-` — so a code on its own still says which of the two
+facts it records. They are also deliberately distinct from the
+`operator-rejected-screening` code minted by the pre-quarantine
+`/api/v1/admin/screening-submissions/{agent_id}/reject` route, whose retry guard
+treats that exact token as proof it already ran.
+
+A manual resolution stamps the matching ruling code onto the agent, so the
+miner-facing `screening_reason` / `screening_reason_code` pair returned by
+`GET /api/v1/retrieval/agent/{agent_id}/status` and
+`GET /api/v1/retrieval/agent-by-hotkey` always describes a single decision
+rather than pairing the operator's prose with a stale screening code.
+
 Quarantine listings default to `sort=oldest` so operator queues process the
 longest-waiting submission first. Clients may request `sort=newest`; pagination
 uses the same timestamp and quarantine-ID direction for deterministic results.

@@ -4453,7 +4453,12 @@ export const screeningQuarantineSchema = z.object({
   policy_version: z.number().int().nonnegative(),
   manifest_digest: z.string(),
   finding_digest: z.string().nullable(),
-  reason_code: z.string(),
+  // Why the screener held this submission: the code from the signed verdict
+  // that opened the quarantine. Renamed from `reason_code` so the console
+  // cannot read it as the operator's own ruling; nullish-tolerant so a rolling
+  // deploy against a platform that has not renamed the field yet degrades to
+  // "unknown code" instead of failing the whole listing.
+  screening_reason_code: z.string().nullish().default(null),
   // Nullish with defaults so Backroom keeps working against a platform that
   // has not deployed the review payloads yet.
   evidence: z.array(screeningEvidenceItemSchema).nullish().default(null),
@@ -4467,6 +4472,11 @@ export const screeningQuarantineSchema = z.object({
   resolved_by: z.string().nullable(),
   resolution: quarantineResolutionSchema.nullable(),
   resolution_reason: z.string().nullable(),
+  // The operator's ruling as its own code, derived by the platform from
+  // `resolution`. Null while the quarantine is active. Deliberately a plain
+  // string rather than an enum: a platform that learns a new resolution value
+  // must not blank the panel here.
+  resolution_reason_code: z.string().nullish().default(null),
 })
 
 export const screeningQuarantineListSchema = z.object({
@@ -4489,7 +4499,12 @@ export const screeningReviewEventListSchema = z.object({
     reviewer_model: z.string().nullable(),
     outcome: z.string(),
     effective_decision: z.string(),
-    reason_code: z.string().nullable(),
+    // Screening-origin code, snapshotted when the event was written. On a
+    // manual event it is the code the reviewed quarantine was opened with —
+    // the lead the operator ruled on, not the ruling itself. See
+    // `resolution_reason_code`.
+    screening_reason_code: z.string().nullish().default(null),
+    resolution_reason_code: z.string().nullish().default(null),
     reason: z.string().nullable(),
     prior_agent_status: z.string(),
     next_agent_status: z.string(),
@@ -4992,10 +5007,13 @@ export const minerQuarantineSummarySchema = z.object({
   quarantine_id: z.string().uuid(),
   agent_id: z.string().uuid(),
   agent_name: z.string(),
-  reason_code: z.string(),
+  // The screening-origin code that opened this quarantine, preserved across
+  // the resolution. Read it as "why it was held", never as "how it ended".
+  screening_reason_code: z.string().nullish().default(null),
   status: z.enum(['active', 'resolved']),
   resolution: quarantineResolutionSchema.nullable(),
   resolution_reason: z.string().nullable(),
+  resolution_reason_code: z.string().nullish().default(null),
   created_at: z.string(),
   resolved_at: z.string().nullable(),
 })

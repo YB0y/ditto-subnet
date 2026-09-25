@@ -60,8 +60,8 @@ function formatBytes(value: number | null) {
   return `${(value / (1024 * 1024)).toFixed(1)} MiB`
 }
 
-function humanize(code: string) {
-  return code.replaceAll('_', ' ').replaceAll('-', ' ')
+function humanize(code: string | null | undefined) {
+  return code ? code.replaceAll('_', ' ').replaceAll('-', ' ') : 'not recorded'
 }
 
 type ExcerptRequest = { path: string; line: number | null }
@@ -513,7 +513,7 @@ export function QuarantineEvidencePanel({
         <div className="flex items-center justify-between">
           <p className="text-xs font-medium text-white">Why it was quarantined</p>
           <span className="text-[10px] capitalize text-[var(--amber)]">
-            {humanize(record.reason_code)}
+            {humanize(record.screening_reason_code)}
           </span>
         </div>
         {evidence.length === 0 ? (
@@ -941,7 +941,8 @@ export function QuarantineEvidencePanel({
                     <li key={item.quarantine_id} className="text-[10px]">
                       <div className="flex items-center justify-between gap-2">
                         <span className="truncate text-[var(--muted-strong)]">
-                          {item.agent_name} · {humanize(item.reason_code)}
+                          {item.agent_name} · held for{' '}
+                          {humanize(item.screening_reason_code)}
                         </span>
                         <span
                           className={`shrink-0 capitalize ${
@@ -955,6 +956,11 @@ export function QuarantineEvidencePanel({
                           {item.resolution ?? 'active'}
                         </span>
                       </div>
+                      {item.resolution_reason_code ? (
+                        <p className="mt-0.5 truncate text-[var(--muted)]">
+                          ruled {humanize(item.resolution_reason_code)}
+                        </p>
+                      ) : null}
                       {item.resolution_reason ? (
                         <p className="mt-0.5 truncate text-[var(--muted)]">
                           {item.resolution_reason}

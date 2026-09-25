@@ -542,7 +542,7 @@ describe('admin API schemas', () => {
           policy_version: 7,
           manifest_digest: 'manifest',
           finding_digest: 'finding',
-          reason_code: 'source_review_suspicious',
+          screening_reason_code: 'source_review_suspicious',
           status: 'active',
           created_at: '2026-07-14T12:00:00Z',
           resolved_at: null,
